@@ -11,8 +11,8 @@ require("dotenv").config();
 
 let connection;
 let audioPlayer;
-let messageId;
-
+let shuffleMode = false;
+let videos;
 const commands = [
   {
     name: "!help",
@@ -32,7 +32,11 @@ const commands = [
   },
   {
     name: "!stop",
-    description: "STOP!",
+    description: "Stops the music!",
+  },
+  {
+    name: "!shuffle",
+    description: "Toggles shuffle mode!",
   },
 ];
 
@@ -54,7 +58,22 @@ async function playPlaylist(playlistUrl, message) {
     let playlist = await play.playlist_info(playlistUrl, { incomplete: true });
     audioPlayer = createAudioPlayer();
 
-    for (let video of playlist.videos) {
+    videos = playlist.videos;
+    if (shuffleMode) {
+      videos = shuffleArray(videos);
+    }
+
+    let currentVideoIndex = 0;
+
+    const playNextVideo = async () => {
+      if (currentVideoIndex >= videos.length) {
+        stopPlaying();
+        return;
+      }
+
+      const video = videos[currentVideoIndex];
+      currentVideoIndex++;
+
       let stream = await play.stream(video.url);
       const resource = createAudioResource(stream.stream, {
         inputType: stream.type,
@@ -76,36 +95,53 @@ async function playPlaylist(playlistUrl, message) {
         );
       }, 1000);
 
-      await new Promise((resolve) => {
-        audioPlayer.once("idle", () => {
-          clearInterval(interval);
-          resolve();
-        });
+      audioPlayer.once("idle", () => {
+        clearInterval(interval);
+        playNextVideo();
       });
-    }
+    };
 
-    stopPlaying();
+    playNextVideo();
   } catch (error) {
     console.error(error);
     message.channel.reply("There was an error trying to play the playlist!");
   }
 }
 
+function shuffleArray(array) {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+  return array;
+}
+
 async function stopPlaying() {
   if (connection && audioPlayer) {
     connection.disconnect();
+    audioPlayer.stop();
   }
 }
 
 async function next() {
   if (connection && audioPlayer) {
+    if (shuffleMode) {
+      videos = shuffleArray(videos);
+    }
     audioPlayer.stop();
   }
 }
 
+function toggleShuffle(message) {
+  shuffleMode = !shuffleMode;
+  message.reply(`Shuffle mode is now ${shuffleMode ? "enabled" : "disabled"}`);
+}
+
 function help(message) {
-  message.reply("Help");
-  console.log("Help");
+  const helpMessage = commands
+    .map((cmd) => `\`${cmd.name}\`: ${cmd.description}`)
+    .join("\n");
+  message.reply(helpMessage);
 }
 
 function formatTime(milliseconds) {
@@ -130,10 +166,10 @@ async function processCommand(command, args, message) {
       await playPlaylist(playlistUrl, message);
       break;
 
-    //TEMP
     case "!p":
       await playPlaylist(
-        "Already defined url so i dont have to type it every time",
+        //.env variable lol
+        process.env.defined_url,
         message
       );
       break;
@@ -144,6 +180,10 @@ async function processCommand(command, args, message) {
 
     case "!next":
       next();
+      break;
+
+    case "!shuffle":
+      toggleShuffle(message);
       break;
 
     default:
