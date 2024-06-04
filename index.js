@@ -82,16 +82,18 @@ async function playPlaylist(playlistUrl, message) {
       audioPlayer.play(resource);
 
       const nowPlayingMessage = await message.channel.send(
-        `playing: **${video.title}** | 00:00`
+        `Now Playing: **${video.title}** | 00:00 / ${video.durationRaw}`
       );
+
+      console.log(video);
 
       connection.subscribe(audioPlayer);
 
       const interval = setInterval(() => {
         nowPlayingMessage.edit(
-          `playing: **${video.title}** | ${formatTime(
+          `Now Playing: **${video.title}** | ${formatTime(
             audioPlayer.state.playbackDuration
-          )}`
+          )} / ${video.durationRaw}`
         );
       }, 1000);
 
