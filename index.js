@@ -9,10 +9,13 @@ const play = require("play-dl");
 const sodium = require("libsodium-wrappers");
 require("dotenv").config();
 
+//Define Global Variables
 let connection;
 let audioPlayer;
 let shuffleMode = false;
 let videos;
+
+// Define available commands with their descriptions
 const commands = [
   {
     name: "!help",
@@ -48,14 +51,17 @@ const commands = [
   },
 ];
 
+// Function to play a playlist
 async function playPlaylist(playlistUrl, message) {
   await sodium.ready;
 
+  // Get the voice channel of the user
   let voiceChannel = message.member.voice.channel;
   if (!voiceChannel) {
     return message.reply("You need to be in a voice channel to play music!");
   }
 
+  // Join the voice channel
   connection = joinVoiceChannel({
     channelId: voiceChannel.id,
     guildId: message.guild.id,
@@ -73,9 +79,11 @@ async function playPlaylist(playlistUrl, message) {
       audioPlayer.play(resource);
       connection.subscribe(audioPlayer);
 
+      // Get video data
       const videoInfo = await play.video_basic_info(playlistUrl);
       const video = videoInfo.video_details;
 
+      // Create embed message
       const musicEmbed = new EmbedBuilder()
         .setColor(0x0099ff)
         .setTitle(`Now Playing: **${video.title}**`)
@@ -91,10 +99,12 @@ async function playPlaylist(playlistUrl, message) {
           text: "Some footer text here",
         });
 
+      //Send embed message
       const nowPlayingMessage = await message.channel.send({
         embeds: [musicEmbed],
       });
 
+      // Update playback time
       const interval = setInterval(() => {
         const updatedEmbed = EmbedBuilder.from(musicEmbed).setDescription(
           `${formatTime(audioPlayer.state.playbackDuration)} / ${
@@ -104,6 +114,7 @@ async function playPlaylist(playlistUrl, message) {
         nowPlayingMessage.edit({ embeds: [updatedEmbed] });
       }, 1000);
 
+      // Stop playing when audio becomes idle
       audioPlayer.once("idle", () => {
         clearInterval(interval);
         stopPlaying();
@@ -112,6 +123,7 @@ async function playPlaylist(playlistUrl, message) {
       return;
     }
 
+    // Play all videos in the playlist
     let playlist = await play.playlist_info(playlistUrl, { incomplete: true });
     audioPlayer = createAudioPlayer();
     videos = playlist.videos;
@@ -123,6 +135,7 @@ async function playPlaylist(playlistUrl, message) {
 
     const playNextVideo = async () => {
       if (currentVideoIndex >= videos.length) {
+        // Stop playing at end of playlist
         stopPlaying();
         return;
       }
@@ -135,6 +148,7 @@ async function playPlaylist(playlistUrl, message) {
         inputType: stream.type,
       });
 
+      // Play the next video
       audioPlayer.play(resource);
 
       const musicEmbed = new EmbedBuilder()
@@ -167,6 +181,7 @@ async function playPlaylist(playlistUrl, message) {
         nowPlayingMessage.edit({ embeds: [updatedEmbed] });
       }, 1000);
 
+      // Play the next video when the current one ends
       audioPlayer.once("idle", () => {
         clearInterval(interval);
         playNextVideo();
@@ -180,6 +195,7 @@ async function playPlaylist(playlistUrl, message) {
   }
 }
 
+// Function to shuffle an array
 function shuffleArray(array) {
   for (let i = array.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -188,6 +204,7 @@ function shuffleArray(array) {
   return array;
 }
 
+//Function to stop playing
 async function stopPlaying() {
   if (connection && audioPlayer) {
     connection.disconnect();
@@ -195,6 +212,7 @@ async function stopPlaying() {
   }
 }
 
+//Function to pause music
 async function pause(timeout) {
   if (audioPlayer) {
     audioPlayer.pause();
@@ -204,12 +222,14 @@ async function pause(timeout) {
   }
 }
 
+// Function to unpause music
 async function unpause() {
   if (audioPlayer) {
     audioPlayer.unpause();
   }
 }
 
+// Function to play the next video
 async function next() {
   if (connection && audioPlayer) {
     if (shuffleMode) {
@@ -219,11 +239,13 @@ async function next() {
   }
 }
 
+// Function to toggle shuffle mode
 function toggleShuffle(message) {
   shuffleMode = !shuffleMode;
   message.reply(`Shuffle mode is now ${shuffleMode ? "enabled" : "disabled"}`);
 }
 
+// Function to display help
 function help(message) {
   const helpEmbed = new EmbedBuilder()
     .setColor(0x0099ff)
@@ -248,6 +270,7 @@ function help(message) {
   message.channel.send({ embeds: [helpEmbed] });
 }
 
+// Function to format time (milliseconds to min:sec)
 function formatTime(milliseconds) {
   var seconds = Math.floor(milliseconds / 1000);
   var minutes = Math.floor(seconds / 60);
@@ -255,6 +278,7 @@ function formatTime(milliseconds) {
   return ("0" + minutes).slice(-2) + ":" + ("0" + seconds).slice(-2);
 }
 
+// Function to run commands
 async function processCommand(command, args, message) {
   switch (command) {
     case "!help":
@@ -290,6 +314,7 @@ async function processCommand(command, args, message) {
   }
 }
 
+//Start bot
 (async () => {
   const client = new Client({
     intents: [
