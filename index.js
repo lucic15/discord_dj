@@ -15,6 +15,7 @@ let connection;
 let audioPlayer;
 let shuffleMode = false;
 let videos;
+const BASE_URL = "http://localhost:3000";
 
 // Define available commands with their descriptions
 const commands = [
@@ -53,7 +54,11 @@ const commands = [
   },
   {
     name: "!list",
-    description: "List saved playlists! ",
+    description: "List saved playlists!",
+  },
+  {
+    name: "!save",
+    description: "Save playlist!",
   },
 ];
 
@@ -244,7 +249,7 @@ async function pause(timeout) {
 //Fetch song from db (json-server)
 function fetchSaved(id, message) {
   axios
-    .get(`http://localhost:3000/urls/${id}`)
+    .get(`http://localhost:3000/urls/${idd}`)
     .then((response) => {
       const post = response.data;
       playPlaylist(post.url, message);
@@ -291,8 +296,9 @@ function toggleShuffle(message) {
   shuffleMode = !shuffleMode;
   message.reply(`Shuffle mode is now ${shuffleMode ? "enabled" : "disabled"}`);
 }
+
 //List saved playlists
-function listSavedPlaylist(message) {
+function listSavedPlaylists(message) {
   axios
     .get("http://localhost:3000/urls/")
     .then((response) => {
@@ -307,8 +313,8 @@ function listSavedPlaylist(message) {
         })
         .addFields(
           posts.map((post) => ({
-            name: post.id,
-            value: post.title,
+            name: "Title: " + post.title,
+            value: "Id: " + post.idd,
             inline: false,
           }))
         )
@@ -322,6 +328,27 @@ function listSavedPlaylist(message) {
     .catch((error) => console.error("Error fetching data:", error));
 }
 
+//Save playlist
+async function addPlaylist(url, title, message) {
+  try {
+    const response = await axios.get("http://localhost:3000/urls/");
+    let idd = generateString(5);
+    //idd is just id used for playing a song
+    const newPlaylist = {
+      idd,
+      url,
+      title,
+    };
+    await axios.post(`${BASE_URL}/urls`, newPlaylist);
+    console.log("Playlist added successfully:", newPlaylist);
+    message.reply(`Playlist added successfully and saved as ${idd}`);
+    return newPlaylist;
+  } catch (error) {
+    console.error("Error adding playlist:", error);
+    throw error;
+  }
+}
+
 //Other Functions
 
 // Function to format time (milliseconds to min:sec)
@@ -330,6 +357,17 @@ function formatTime(milliseconds) {
   var minutes = Math.floor(seconds / 60);
   seconds = seconds % 60;
   return ("0" + minutes).slice(-2) + ":" + ("0" + seconds).slice(-2);
+}
+
+const characters = "abcdefghijklmnopqrstuvwxyz0123456789!";
+function generateString(length) {
+  let result = " ";
+  const charactersLength = characters.length;
+  for (let i = 0; i < length; i++) {
+    result += characters.charAt(Math.floor(Math.random() * charactersLength));
+  }
+
+  return result;
 }
 
 // Function to run commands
@@ -346,10 +384,7 @@ async function processCommand(command, args, message) {
       await playPlaylist(playlistUrl, message);
       break;
     case "!list":
-      listSavedPlaylist(message);
-      break;
-    case "!p":
-      await playPlaylist(process.env.defined_url, message);
+      listSavedPlaylists(message);
       break;
     case "!pause":
       pause(args[1]);
@@ -365,6 +400,10 @@ async function processCommand(command, args, message) {
       break;
     case "!shuffle":
       toggleShuffle(message);
+      break;
+    case "!save":
+      addPlaylist(args[1], args[2], message);
+
       break;
     default:
       break;
