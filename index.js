@@ -7,6 +7,7 @@ const {
 } = require("@discordjs/voice");
 const play = require("play-dl");
 const sodium = require("libsodium-wrappers");
+const { default: axios } = require("axios");
 require("dotenv").config();
 
 //Define Global Variables
@@ -14,6 +15,11 @@ let connection;
 let audioPlayer;
 let shuffleMode = false;
 let videos;
+
+/*
+TODO
+-Fix bug when playing saved playlist in db
+*/
 
 // Define available commands with their descriptions
 const commands = [
@@ -51,6 +57,17 @@ const commands = [
   },
 ];
 
+//Fetch song from db (json-server)
+function fetchSaved(id, message) {
+  axios
+    .get(`http://localhost:3000/urls/${id}`)
+    .then((response) => {
+      const post = response.data;
+      playPlaylist(post.url, message);
+    })
+    .catch((error) => console.error("Error fetching data:", error));
+}
+
 // Function to play a playlist
 async function playPlaylist(playlistUrl, message) {
   await sodium.ready;
@@ -69,6 +86,9 @@ async function playPlaylist(playlistUrl, message) {
   });
 
   try {
+    if (!playlistUrl.includes("watch") && !playlistUrl.includes("playlist")) {
+      fetchSaved(playlistUrl, message);
+    }
     if (!playlistUrl.includes("playlist")) {
       console.log("Not a playlist");
       audioPlayer = createAudioPlayer();
@@ -163,8 +183,9 @@ async function playPlaylist(playlistUrl, message) {
         .setImage(`${video.thumbnails[3].url}`)
         .setTimestamp()
         .setFooter({
-          text: "Some footer text here",
+          text: `Requester:${message.author.globalName}`, // make sure that author is tagged
         });
+      console.log(message);
 
       const nowPlayingMessage = await message.channel.send({
         embeds: [musicEmbed],
