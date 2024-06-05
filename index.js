@@ -30,6 +30,7 @@ const commands = [
     name: "!p",
     description: "Plays a predefined playlist!",
   },
+
   {
     name: "!pause",
     description: "Pauses the music for a specified time!",
@@ -50,17 +51,37 @@ const commands = [
     name: "!shuffle",
     description: "Toggles shuffle mode!",
   },
+  {
+    name: "!list",
+    description: "List saved playlists! ",
+  },
 ];
 
-//Fetch song from db (json-server)
-function fetchSaved(id, message) {
-  axios
-    .get(`http://localhost:3000/urls/${id}`)
-    .then((response) => {
-      const post = response.data;
-      playPlaylist(post.url, message);
+//Commands
+
+// Function to display help
+function help(message) {
+  const helpEmbed = new EmbedBuilder()
+    .setColor(0x0099ff)
+    .setTitle("Help Menu")
+    .setAuthor({
+      name: "Music Bot",
+      iconURL:
+        "https://raw.githubusercontent.com/codetheweb/aoede/main/.github/logo.png",
     })
-    .catch((error) => console.error("Error fetching data:", error));
+    .addFields(
+      commands.map((cmd) => ({
+        name: cmd.name,
+        value: cmd.description,
+        inline: false,
+      }))
+    )
+    .setTimestamp()
+    .setFooter({
+      text: "Some footer text here",
+    });
+
+  message.channel.send({ embeds: [helpEmbed] });
 }
 
 // Function to play a playlist
@@ -86,7 +107,6 @@ async function playPlaylist(playlistUrl, message) {
       return;
     }
     if (!playlistUrl.includes("playlist")) {
-      console.log("Not a playlist");
       audioPlayer = createAudioPlayer();
       let stream = await play.stream(playlistUrl);
       const resource = createAudioResource(stream.stream, {
@@ -181,7 +201,6 @@ async function playPlaylist(playlistUrl, message) {
         .setFooter({
           text: `Requester:${message.author.globalName}`, // make sure that author is tagged
         });
-      console.log(message);
 
       const nowPlayingMessage = await message.channel.send({
         embeds: [musicEmbed],
@@ -212,23 +231,6 @@ async function playPlaylist(playlistUrl, message) {
   }
 }
 
-// Function to shuffle an array
-function shuffleArray(array) {
-  for (let i = array.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [array[i], array[j]] = [array[j], array[i]];
-  }
-  return array;
-}
-
-//Function to stop playing
-async function stopPlaying() {
-  if (connection && audioPlayer) {
-    connection.disconnect();
-    audioPlayer.stop();
-  }
-}
-
 //Function to pause music
 async function pause(timeout) {
   if (audioPlayer) {
@@ -237,6 +239,17 @@ async function pause(timeout) {
       setTimeout(() => unpause(), timeout * 1000);
     }
   }
+}
+
+//Fetch song from db (json-server)
+function fetchSaved(id, message) {
+  axios
+    .get(`http://localhost:3000/urls/${id}`)
+    .then((response) => {
+      const post = response.data;
+      playPlaylist(post.url, message);
+    })
+    .catch((error) => console.error("Error fetching data:", error));
 }
 
 // Function to unpause music
@@ -256,36 +269,60 @@ async function next() {
   }
 }
 
+//Function to stop playing
+async function stopPlaying() {
+  if (connection && audioPlayer) {
+    connection.disconnect();
+    audioPlayer.stop();
+  }
+}
+
+// Function to shuffle an array
+function shuffleArray(array) {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+  return array;
+}
+
 // Function to toggle shuffle mode
 function toggleShuffle(message) {
   shuffleMode = !shuffleMode;
   message.reply(`Shuffle mode is now ${shuffleMode ? "enabled" : "disabled"}`);
 }
+//List saved playlists
+function listSavedPlaylist(message) {
+  axios
+    .get("http://localhost:3000/urls/")
+    .then((response) => {
+      const posts = response.data;
+      const helpEmbed = new EmbedBuilder()
+        .setColor(0x0099ff)
+        .setTitle("Help Menu")
+        .setAuthor({
+          name: "Music Bot",
+          iconURL:
+            "https://raw.githubusercontent.com/codetheweb/aoede/main/.github/logo.png",
+        })
+        .addFields(
+          posts.map((post) => ({
+            name: post.id,
+            value: post.title,
+            inline: false,
+          }))
+        )
+        .setTimestamp()
+        .setFooter({
+          text: "Some footer text here",
+        });
 
-// Function to display help
-function help(message) {
-  const helpEmbed = new EmbedBuilder()
-    .setColor(0x0099ff)
-    .setTitle("Help Menu")
-    .setAuthor({
-      name: "Music Bot",
-      iconURL:
-        "https://raw.githubusercontent.com/codetheweb/aoede/main/.github/logo.png",
+      message.channel.send({ embeds: [helpEmbed] });
     })
-    .addFields(
-      commands.map((cmd) => ({
-        name: cmd.name,
-        value: cmd.description,
-        inline: false,
-      }))
-    )
-    .setTimestamp()
-    .setFooter({
-      text: "Some footer text here",
-    });
-
-  message.channel.send({ embeds: [helpEmbed] });
+    .catch((error) => console.error("Error fetching data:", error));
 }
+
+//Other Functions
 
 // Function to format time (milliseconds to min:sec)
 function formatTime(milliseconds) {
@@ -307,6 +344,9 @@ async function processCommand(command, args, message) {
       }
       const playlistUrl = args[1];
       await playPlaylist(playlistUrl, message);
+      break;
+    case "!list":
+      listSavedPlaylist(message);
       break;
     case "!p":
       await playPlaylist(process.env.defined_url, message);
