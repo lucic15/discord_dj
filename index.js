@@ -16,11 +16,6 @@ let audioPlayer;
 let shuffleMode = false;
 let videos;
 
-/*
-TODO
--Fix bug when playing saved playlist in db
-*/
-
 // Define available commands with their descriptions
 const commands = [
   {
@@ -88,6 +83,7 @@ async function playPlaylist(playlistUrl, message) {
   try {
     if (!playlistUrl.includes("watch") && !playlistUrl.includes("playlist")) {
       fetchSaved(playlistUrl, message);
+      return;
     }
     if (!playlistUrl.includes("playlist")) {
       console.log("Not a playlist");
