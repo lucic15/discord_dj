@@ -20,7 +20,7 @@ const commands = [
   },
   {
     name: "!play",
-    description: "Plays the given playlist!",
+    description: "Plays the given playlist or video!",
   },
   {
     name: "!p",
@@ -63,6 +63,55 @@ async function playPlaylist(playlistUrl, message) {
   });
 
   try {
+    if (!playlistUrl.includes("playlist")) {
+      console.log("Not a playlist");
+      audioPlayer = createAudioPlayer();
+      let stream = await play.stream(playlistUrl);
+      const resource = createAudioResource(stream.stream, {
+        inputType: stream.type,
+      });
+      audioPlayer.play(resource);
+      connection.subscribe(audioPlayer);
+
+      const videoInfo = await play.video_basic_info(playlistUrl);
+      const video = videoInfo.video_details;
+
+      const musicEmbed = new EmbedBuilder()
+        .setColor(0x0099ff)
+        .setTitle(`Now Playing: **${video.title}**`)
+        .setAuthor({
+          name: "Music Bot",
+          iconURL:
+            "https://raw.githubusercontent.com/codetheweb/aoede/main/.github/logo.png",
+        })
+        .setDescription(`00:00 / ${video.durationRaw}`)
+        .setImage(`${video.thumbnails[3].url}`)
+        .setTimestamp()
+        .setFooter({
+          text: "Some footer text here",
+        });
+
+      const nowPlayingMessage = await message.channel.send({
+        embeds: [musicEmbed],
+      });
+
+      const interval = setInterval(() => {
+        const updatedEmbed = EmbedBuilder.from(musicEmbed).setDescription(
+          `${formatTime(audioPlayer.state.playbackDuration)} / ${
+            video.durationRaw
+          }`
+        );
+        nowPlayingMessage.edit({ embeds: [updatedEmbed] });
+      }, 1000);
+
+      audioPlayer.once("idle", () => {
+        clearInterval(interval);
+        stopPlaying();
+      });
+
+      return;
+    }
+
     let playlist = await play.playlist_info(playlistUrl, { incomplete: true });
     audioPlayer = createAudioPlayer();
     videos = playlist.videos;
@@ -93,7 +142,6 @@ async function playPlaylist(playlistUrl, message) {
         .setTitle(`Now Playing: **${video.title}**`)
         .setAuthor({
           name: "Music Bot",
-          // Temp icon
           iconURL:
             "https://raw.githubusercontent.com/codetheweb/aoede/main/.github/logo.png",
         })
@@ -128,7 +176,7 @@ async function playPlaylist(playlistUrl, message) {
     playNextVideo();
   } catch (error) {
     console.error(error);
-    message.reply("There was an error trying to play the playlist!");
+    message.reply("There was an error trying to play the playlist or video!");
   }
 }
 
@@ -214,7 +262,7 @@ async function processCommand(command, args, message) {
       break;
     case "!play":
       if (args.length < 2) {
-        return message.reply("You need to provide a YouTube playlist URL!");
+        return message.reply("You need to provide a YouTube URL!");
       }
       const playlistUrl = args[1];
       await playPlaylist(playlistUrl, message);
